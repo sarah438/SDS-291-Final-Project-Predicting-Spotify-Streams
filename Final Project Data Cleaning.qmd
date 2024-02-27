@@ -1,0 +1,77 @@
+---
+title: "Final Project Data Cleaning"
+authors: "Olga Kazarov, Glenvelis Perez, and Sarah Mian"
+date: 12/20/2023
+format: pdf
+---
+
+```{r, message = FALSE, warning = FALSE}
+#| echo: false
+library(tidyverse)
+```
+
+```{r}
+#| message: false
+#| echo: false
+spotify_orig <- read_csv("spotify-2023.csv")
+```
+
+```{r}
+#| echo: false
+spotify <- spotify_orig %>% 
+  mutate(features = case_when(artist_count == 1 ~ 0,
+                              artist_count > 1 ~ 1))
+```
+
+```{r}
+#| echo: false
+spotify$summer <- ifelse(spotify$released_month >= 6 & spotify$released_month <= 8, 1, 0)
+```
+
+```{r}
+#| echo: false
+names(spotify)[names(spotify) == "energy_%"] <- "energy"
+names(spotify)[names(spotify) == "valence_%"] <- "valence"
+names(spotify)[names(spotify) == "artist(s)_name"] <- "artist_name"
+```
+
+```{r}
+#| echo: false
+spotify <- subset(spotify, select = -c(released_year, released_day, in_spotify_playlists, in_spotify_charts, in_apple_playlists, in_apple_charts, in_deezer_playlists, in_deezer_charts, in_shazam_charts, key, mode, `danceability_%`, `acousticness_%`, `instrumentalness_%`, `liveness_%`, `speechiness_%`))
+```
+
+```{r}
+#| echo: false
+spotify <- spotify[-c(575), ]
+```
+
+```{r}
+#| echo: false
+spotify <- spotify[-c(124, 143, 145, 394), ]
+```
+
+
+```{r, message = FALSE, warning = FALSE}
+#| echo: false
+#| message: false
+#| warning: false
+spotify <- transform(spotify, streams = as.numeric(streams))
+```
+
+
+```{r}
+#| echo: false
+spotify <- spotify %>% 
+  mutate(streams = log(streams))
+```
+
+```{r}
+# choose location of cleaned data 
+#write.csv(spotify, "C:\\Users\\16099\\OneDrive\\Documents\\SDS 100\\SDS 291\\SDS 291\\spotify_clean.csv", row.names=FALSE)
+```
+
+```{r}
+## move to same folder as the final report
+write.csv(spotify, "spotify_clean.csv")
+```
+

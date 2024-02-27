@@ -1,0 +1,236 @@
+---
+title: "SDS 291 Final Project: Research Design"
+authors: "Olga Kazarov, Glenvelis Perez, and Sarah Mian"
+date: 11/21/2023
+format: pdf
+editor: visual
+bibliography: citations.bib
+link-citations: true
+---
+
+**Background**
+
+Today, music is a crucial part of social life, with people using it as a form of connection and emotional expression. Especially as platforms such as Spotify have become more popular, music has become more accessible. For this reason, we are focusing on the popularity of music, as measured by the number of streams a song receives on Spotify, because this platform is one of the most widely used music streaming services in the world right now. It is interesting to us to be able to see which factors are influencing the music that we are listening to and that the people around us are listening to as well, since the popularity of music is oftentimes an important factor in determining what songs we all come across and end up listening to. Our research will help further determine what factors actually play a role in song popularity.
+
+We are interested in analyzing which factors play a role in the number of Spotify streams a song has. We will specifically be looking at artist features, the release time of the song, energy and valence, and beats per minute. We expect that songs with higher energy, higher valence, and a higher number of beats per minute will have a higher number of streams. Furthermore, we hypothesize that if a song is released in the summer, it will have higher energy levels and a higher number of beats per minute. Finally, we hypothesize that valence, energy, beats per minute, and whether a song was released in the summer will create the best predictor model for a song's number of streams.
+
+Previous research has shown that the energy and valence of a song positively affect its popularity, while speechiness, instrumentalness, and liveness negatively affect popularity. It was also found that the interaction between energy and valence had a strong negative effect on popularity [@sciandra_model-based_2020]. Studies have also shown seasonal changes in music preference. For example, the intensity of music is correlated with day length and thus there is an uptick in music intensity during the warmer summer and a decline to more calm music in the cold winter months, specifically during the late-December holidays [@park_global_2019]. The presence of a featured artist on a song has been shown to increase the song's popularity as well as the longevity of the song's popularity [@suh_international_2019].
+
+**Data**
+
+The dataset we are using is a collection of the most streamed songs on Spotify in 2023, collected directly from the Spotify streaming platform from Spotify users, and made accessible on Kaggle. There are 943 observations in this dataset. The sampled population consists of Spotify songs, and the sample was collected from Spotify in 2023. Our unit of analysis is songs. The variables that will be included in our analysis are energy percentage, valence percentage, number of beats per minute, number of streams, and whether or not a song was released in the summer; the audio feature variables were likely calculated through Spotify's own software.
+
+**Variables**
+
+We will transform the release month variable into a binary variable representing whether the month is a summer month (months 6-8) or is not a summer month (all remaining months). Similarly, we will transform the number of artists featured on a song to a binary variable (0 if no artists are featured and 1 if at least one artist is featured). Our primary dependent variable is the number of streams a song receives. Our qualitative independent variables are whether or not there are artist features on the song, and if the song was released in the summer; our quantitative independent variables are energy and valence percentages and beats per minute. We will use our summer binary variable as a dependent variable in one of our models to see if there is a relationship between release time and the audio features of a song.
+
+**Method**
+
+We will use our data to create two multiple regression models and one multiple logistic model. The first multiple regression model will focus on the correlation between valence percentage, energy percentage, and beats per minute with the number of streams. The second model is a multiple logistic model that will focus on energy percentage and beats per minute in relation to its probability of the song being released in the summer. The third model, our second multiple regression model, will use valence percentage, energy percentage, beats per minute, and whether a song was released in the summer to predict the number of streams.
+
+Our method will allow us to observe the best predictors in determining a song's number of streams as well as if there is a relationship between the timing of the song's release and its qualities, as well as its number of streams. Our approach allows us to take into account multiple variables and check for collinearity in our data.
+
+```{r, message = FALSE, warning = FALSE}
+#| echo: false
+library(stargazer)
+library(tidyverse)
+library(readr)
+library(Sleuth2)
+library(broom)
+library(dplyr)
+library(leaps)
+library(HH)
+```
+
+```{r}
+#| message: false
+#| echo: false
+spotify_orig <- read_csv("spotify-2023.csv")
+```
+
+```{r}
+#| echo: false
+spotify <- spotify_orig %>% 
+  mutate(features = case_when(artist_count == 1 ~ 0,
+                              artist_count > 1 ~ 1))
+```
+
+```{r}
+#spotify <- subset(spotify, select = -c(released_year, released_day, in_spotify_playlists, in_spotify_charts, in_apple_playlists, in_apple_charts, in_deezer_playlists, in_deezer_charts, in_shazam_charts, key, mode, danceability, acousticness, instrumentalness, liveness, speechiness))
+```
+
+```{r}
+spotify <- spotify[-c(575), ]
+spotify <- spotify[-c(124, 143, 145, 394), ]
+```
+
+```{r}
+
+spotify <- transform(spotify, streams = as.numeric(streams))
+
+summary(spotify)
+```
+
+```{r}
+#| echo: false
+spotify$summer <- ifelse(spotify$released_month >= 6 & spotify$released_month <= 8, 1, 0)
+```
+
+```{r}
+#| echo: false
+names(spotify)[names(spotify) == "energy_%"] <- "energy"
+```
+
+```{r}
+spotify <- spotify %>% 
+  mutate(streams = log(streams))
+```
+
+```{r}
+#| echo: false
+#| include: false
+spotify_logit <- glm(summer~bpm+energy_., data=spotify, family="binomial")
+summary(spotify_logit)
+```
+
+```{r}
+newdata <- with(spotify, data.frame(bpm=mean(bpm),  energy_. = (0:100)))
+```
+
+```{r}
+#| echo: false
+#| include: false
+pred <- as.data.frame(predict(spotify_logit, newdata, type="response", se.fit=TRUE))
+```
+
+```{r}
+newdata$pred_prob <- pred$fit
+newdata$pred_lower <- pred$fit-(1.96*pred$se.fit)
+newdata$pred_upper <- pred$fit+(1.96*pred$se.fit)
+```
+
+```{r}
+ggplot(newdata, aes(x=energy_., y=pred_prob)) + geom_point() + ggtitle("Predicted Probability of Summer Based on Energy")
+```
+
+```{r}
+newdata_bpm <- with(spotify, data.frame(bpm= (65:206), energy_. = mean(energy_.)))
+```
+
+```{r}
+#| echo: false
+#| include: false
+pred <- as.data.frame(predict(spotify_logit, spotify, type="response", se.fit=TRUE))
+```
+
+```{r}
+
+#newdata_bpm$pred_prob <- pred$fit
+#newdata_bpm$pred_lower <- pred$fit-(1.96*pred$se.fit)
+#newdata_bpm$pred_upper <- pred$fit+(1.96*pred$se.fit)
+```
+
+```{r}
+ggplot(spotify, aes(x=bpm, y=pred)) + geom_point() + ggtitle("Predicted Probability of Summer Based on BPM")
+```
+
+```{r, results = "asis"}
+#| echo: false
+stargazer(spotify_logit, type="latex", title = "Predicted Summer Song", covariate.labels = c("Beats Per Minute", "Energy Percentage"), dep.var.labels   = ("Summer"), header = FALSE)
+```
+
+```{r}
+#| echo: false
+#ggplot(data = spotify, mapping = aes(x = ))
+ggplot(spotify, aes(x=bpm, y=summer)) + geom_point() + geom_smooth()
+```
+
+```{r}
+#| echo: false
+ggplot(spotify, aes(x=energy, y=summer))+ geom_smooth(method = "glm", method.args = list(family = "binomial"), se = T)
+```
+
+```{r}
+names(spotify)[names(spotify) == "valence_%"] <- "valence"
+names(spotify)[names(spotify) == "danceability_%"] <- "danceability"
+names(spotify)[names(spotify) == "acousticness_%"] <- "acousticness"
+names(spotify)[names(spotify) == "instrumentalness_%"] <- "instrumentalness"
+names(spotify)[names(spotify) == "liveness_%"] <- "liveness"
+names(spotify)[names(spotify) == "speechiness_%"] <- "speechiness"
+```
+
+```{r}
+out <- boxplot.stats(spotify$streams)$out
+out_ind <- which(spotify$streams %in% c(out))
+out_ind
+spotify[out_ind, ]
+```
+
+```{r}
+model2 <- lm(streams~bpm+energy+valence+as.factor(summer)+as.factor(features), data=spotify)
+summary(model2)
+```
+
+```{r}
+#model2_resid <- augment(model2)
+#ggplot(model2, aes(x=.fitted, y=.resid)) + geom_point() + geom_smooth(method=lm)
+```
+
+```{r, results = "asis"}
+stargazer(model2, type = "latex", 
+          title            = "Predicted Number of Streams",
+          covariate.labels = c("BPM", "Energy", "Valence", "Summer", "Features"),
+          dep.var.labels   = ("Streams"), header=F)
+
+```
+
+```{r}
+all = regsubsets(streams~energy_.+bpm+valence_.+summer+features, data = spotify)
+summary(all)$cp
+```
+
+```{r}
+plot(all, scale = "Cp")
+```
+
+```{r}
+summary(all)$bic
+```
+
+```{r}
+plot(all, scale = "bic")
+```
+
+```{r}
+summary(all)$bic
+```
+
+```{r}
+plot(all, scale = "bic")
+```
+
+```{r}
+all_logit = regsubsets(summer~energy_.+bpm, data = spotify)
+summary(all_logit)$cp
+```
+
+```{r}
+plot(all_logit, scale = "bic")
+```
+
+```{r}
+summaryHH(all)
+```
+
+```{r}
+stargazer(model2, type = "latex", title = "Predicted Number of Streams", covariate.labels = c("BPM", "Energy", "Valence", "Summer", "Features"),dep.var.labels   = ("Streams"), header=F)
+```
+
+**Bibliography**
+
+```{=tex}
+\setlength{\parindent}{-0.2in}
+\setlength{\leftskip}{0.2in}
+\setlength{\parskip}{8pt}
+```
+\noindent 
